@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Core Digital — Relatório Automático</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --navy:  #080f1e;
+  --navy2: #0d1a30;
+  --green: #5bdc3e;
+  --green2:#3cb827;
+  --white: #eef2ff;
+  --gray:  #7a8fbb;
+  --border:#1a3058;
+  --card:  #0f1e38;
+  --card2: #152340;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--navy); color:var(--white); font-family:'DM Sans',sans-serif; min-height:100vh; }
+
+header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 40px; border-bottom:1px solid var(--border);
+  background:rgba(8,15,30,0.97); backdrop-filter:blur(12px);
+  position:sticky; top:0; z-index:100;
+}
+.logo { display:flex; align-items:center; gap:11px; }
+.logo-box {
+  width:32px; height:32px; background:var(--green); border-radius:7px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-weight:800; font-size:13px; color:var(--navy);
+}
+.logo h1 { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; }
+.logo span { color:var(--gray); font-weight:400; }
+
+#authBtn {
+  display:flex; align-items:center; gap:8px;
+  background:var(--card2); border:1px solid var(--border);
+  color:var(--white); padding:8px 16px; border-radius:9px;
+  font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500;
+  cursor:pointer; transition:all 0.2s;
+}
+#authBtn:hover { border-color:var(--green); color:var(--green); }
+#authBtn.connected { border-color:var(--green); color:var(--green); background:rgba(91,220,62,0.07); }
+
+.wrap { max-width:740px; margin:0 auto; padding:44px 24px 100px; }
+
+.hero { margin-bottom:36px; }
+.hero-tag {
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(91,220,62,0.08); border:1px solid rgba(91,220,62,0.2);
+  color:var(--green); font-size:10px; font-weight:600;
+  padding:3px 11px; border-radius:20px;
+  letter-spacing:1px; text-transform:uppercase; margin-bottom:16px;
+}
+.hero h2 {
+  font-family:'Syne',sans-serif; font-size:32px; font-weight:800;
+  letter-spacing:-0.8px; line-height:1.1; margin-bottom:10px;
+}
+.hero h2 em { color:var(--green); font-style:normal; }
+.hero p { color:var(--gray); font-size:14px; line-height:1.7; }
+
+/* SETUP CARD */
+.setup-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:16px; padding:28px; margin-bottom:20px;
+}
+.setup-card h3 { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; margin-bottom:16px; }
+.setup-row { display:flex; gap:10px; align-items:flex-end; margin-bottom:12px; }
+.setup-row:last-child { margin-bottom:0; }
+.field-wrap { flex:1; }
+.field-wrap label { display:block; font-size:11px; color:var(--gray); text-transform:uppercase; letter-spacing:0.3px; margin-bottom:5px; }
+.field-wrap input {
+  width:100%; background:var(--card2); border:1px solid var(--border);
+  color:var(--white); padding:9px 12px; border-radius:9px;
+  font-family:'DM Sans',sans-serif; font-size:13px; outline:none; transition:border-color 0.2s;
+}
+.field-wrap input:focus { border-color:var(--green); }
+.field-wrap input::placeholder { color:rgba(122,143,187,0.5); }
+.btn-sm {
+  background:transparent; border:1px solid var(--border); color:var(--gray);
+  padding:9px 16px; border-radius:9px; font-size:12px; cursor:pointer;
+  transition:all 0.2s; white-space:nowrap; flex-shrink:0;
+}
+.btn-sm:hover { border-color:var(--white); color:var(--white); }
+.btn-google {
+  display:flex; align-items:center; gap:8px;
+  background:var(--green); color:var(--navy); border:none;
+  padding:9px 20px; border-radius:9px;
+  font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  cursor:pointer; transition:opacity 0.2s; white-space:nowrap;
+}
+.btn-google:hover { opacity:0.85; }
+
+/* UPLOAD */
+.upload-zone {
+  border:2px dashed var(--border); border-radius:16px; padding:52px 32px;
+  text-align:center; cursor:pointer; transition:all 0.2s;
+  background:var(--card); position:relative; margin-bottom:20px;
+}
+.upload-zone:hover, .upload-zone.drag { border-color:var(--green); background:var(--card2); }
+.upload-zone input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+.upload-icon {
+  width:56px; height:56px; border-radius:16px;
+  background:linear-gradient(135deg,var(--green2),var(--green));
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; margin:0 auto 16px;
+}
+.upload-zone h3 { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; margin-bottom:6px; }
+.upload-zone p { color:var(--gray); font-size:13px; }
+.upload-tag {
+  display:inline-block; background:var(--navy2); border:1px solid var(--border);
+  color:var(--green); font-size:10px; font-weight:600;
+  padding:3px 10px; border-radius:20px; margin-top:12px;
+  letter-spacing:0.5px; text-transform:uppercase;
+}
+
+/* PROGRESS */
+.progress-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:16px; padding:28px; display:none; margin-bottom:20px;
+}
+.progress-card.visible { display:block; animation:fadeUp 0.3s ease; }
+.progress-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.progress-head h3 { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; }
+.pct { background:rgba(91,220,62,0.1); border:1px solid rgba(91,220,62,0.3); color:var(--green); font-family:'Syne',sans-serif; font-size:13px; font-weight:700; padding:3px 11px; border-radius:20px; }
+.bar { height:5px; background:var(--border); border-radius:3px; overflow:hidden; margin-bottom:20px; }
+.bar-fill { height:100%; background:linear-gradient(90deg,var(--green2),var(--green)); border-radius:3px; width:0%; transition:width 0.5s ease; }
+.steps { display:flex; flex-direction:column; gap:10px; }
+.step {
+  display:flex; align-items:center; gap:12px;
+  padding:11px 14px; background:var(--card2); border:1px solid var(--border);
+  border-radius:11px; transition:all 0.3s;
+}
+.step.active { border-color:rgba(91,220,62,0.4); background:rgba(91,220,62,0.05); }
+.step.done { border-color:rgba(91,220,62,0.2); }
+.step-ic { width:30px; height:30px; border-radius:7px; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; transition:background 0.3s; }
+.step.active .step-ic { background:rgba(91,220,62,0.2); }
+.step.done .step-ic { background:var(--green); }
+.step h4 { font-size:13px; font-weight:500; }
+.step p { font-size:11px; color:var(--gray); margin-top:1px; }
+.step.active h4 { color:var(--green); }
+.step.done h4 { color:var(--gray); }
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin { display:inline-block; animation:spin 0.8s linear infinite; }
+
+/* DONE */
+.done-card {
+  background:var(--card); border:1px solid rgba(91,220,62,0.3);
+  border-radius:16px; padding:36px 28px; text-align:center;
+  display:none; margin-bottom:20px;
+}
+.done-card.visible { display:block; animation:fadeUp 0.4s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.done-icon {
+  width:60px; height:60px; border-radius:50%;
+  background:linear-gradient(135deg,var(--green2),var(--green));
+  display:flex; align-items:center; justify-content:center;
+  font-size:26px; margin:0 auto 16px;
+  animation:pop 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes pop { from{transform:scale(0)} to{transform:scale(1)} }
+.done-card h3 { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; margin-bottom:6px; }
+.done-card > p { color:var(--gray); font-size:14px; margin-bottom:24px; }
+.link-box {
+  background:var(--card2); border:1px solid var(--border);
+  border-radius:10px; padding:12px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:20px; text-align:left;
+}
+.link-box .lv { font-size:12px; color:var(--green); word-break:break-all; }
+.done-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.btn-open {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--green); color:var(--navy); border:none;
+  padding:12px 24px; border-radius:10px;
+  font-family:'Syne',sans-serif; font-size:14px; font-weight:700;
+  cursor:pointer; text-decoration:none; transition:opacity 0.2s;
+}
+.btn-open:hover { opacity:0.85; }
+.btn-reset { background:transparent; border:1px solid var(--border); color:var(--gray); padding:12px 20px; border-radius:10px; font-size:13px; cursor:pointer; transition:all 0.2s; }
+.btn-reset:hover { border-color:var(--white); color:var(--white); }
+
+.error-box { background:rgba(255,70,70,0.07); border:1px solid rgba(255,70,70,0.3); border-radius:10px; padding:13px 16px; color:#ff9999; font-size:13px; display:none; margin-top:12px; line-height:1.6; }
+.error-box.visible { display:block; }
+
+@media(max-width:600px){
+  header{padding:14px 16px;}
+  .wrap{padding:28px 14px 80px;}
+  .hero h2{font-size:24px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-box">CD</div>
+    <h1>Relatório Automático <span>· Core Digital</span></h1>
+  </div>
+  <button id="authBtn" onclick="startAuth()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor" opacity=".9"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor" opacity=".7"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="currentColor" opacity=".5"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor" opacity=".8"/>
+    </svg>
+    <span id="authLabel">Conectar Google</span>
+  </button>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-tag">✦ Core Digital</div>
+    <h2>Sobe o PDF do Reportei.<br><em>Relatório pronto.</em></h2>
+    <p>A IA lê o PDF, extrai os dados e preenche o Google Slides automaticamente.</p>
+  </div>
+
+  <!-- SETUP -->
+  <div class="setup-card">
+    <h3>Configuração</h3>
+    <div class="setup-row">
+      <div class="field-wrap">
+        <label>Google OAuth Client ID</label>
+        <input type="text" id="clientIdInput" placeholder="xxxxxxxx.apps.googleusercontent.com" />
+      </div>
+      <button class="btn-sm" onclick="saveClientId()">Salvar</button>
+      <button class="btn-google" onclick="startAuth()">Conectar Google</button>
+    </div>
+    <div class="setup-row">
+      <div class="field-wrap">
+        <label>URL do proxy (Cloudflare Worker)</label>
+        <input type="text" id="proxyInput" placeholder="https://seu-worker.workers.dev" />
+      </div>
+      <button class="btn-sm" onclick="saveProxy()">Salvar</button>
+    </div>
+    <div class="setup-row">
+      <div class="field-wrap">
+        <label>ID do template no Google Slides</label>
+        <input type="text" id="templateIdInput" value="1yWahTCMrt18g7C9I4hIMDmLFWuIgtOeV" />
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept=".pdf" />
+    <div class="upload-icon">📄</div>
+    <h3>Suba o PDF do Reportei</h3>
+    <p>Arraste ou clique para selecionar. Funciona com qualquer cliente.</p>
+    <div class="upload-tag">PDF · Reportei</div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-card" id="progressCard">
+    <div class="progress-head">
+      <h3 id="progTitle">Processando...</h3>
+      <div class="pct" id="progPct">0%</div>
+    </div>
+    <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+    <div class="steps">
+      <div class="step" id="s1"><div class="step-ic">📄</div><div><h4>Lendo o PDF</h4><p>Extraindo o conteúdo</p></div></div>
+      <div class="step" id="s2"><div class="step-ic">🤖</div><div><h4>Analisando com IA</h4><p>Identificando métricas e dados</p></div></div>
+      <div class="step" id="s3"><div class="step-ic">📋</div><div><h4>Copiando o template</h4><p>Criando nova apresentação</p></div></div>
+      <div class="step" id="s4"><div class="step-ic">✏️</div><div><h4>Preenchendo os slides</h4><p>Substituindo os placeholders</p></div></div>
+    </div>
+    <div class="error-box" id="errBox"></div>
+  </div>
+
+  <!-- DONE -->
+  <div class="done-card" id="doneCard">
+    <div class="done-icon">✓</div>
+    <h3>Relatório gerado!</h3>
+    <p>Dados preenchidos automaticamente no Google Slides.</p>
+    <div class="link-box">
+      <div class="lv" id="doneUrl">—</div>
+      <button class="btn-sm" onclick="copyUrl()">Copiar</button>
+    </div>
+    <div class="done-actions">
+      <a id="openBtn" href="#" target="_blank" class="btn-open">Abrir no Google Slides ↗</a>
+      <button class="btn-reset" onclick="reset()">↩ Novo relatório</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEMPLATE_ID = '1yWahTCMrt18g7C9I4hIMDmLFWuIgtOeV';
+const SCOPES = 'https://www.googleapis.com/auth/presentations https://www.googleapis.com/auth/drive';
+
+let accessToken = null;
+let clientId = localStorage.getItem('cd_client_id') || '';
+let proxyUrl = localStorage.getItem('cd_proxy') || '';
+
+if (clientId) document.getElementById('clientIdInput').value = clientId;
+if (proxyUrl) document.getElementById('proxyInput').value = proxyUrl;
+
+function saveClientId() {
+  clientId = document.getElementById('clientIdInput').value.trim();
+  localStorage.setItem('cd_client_id', clientId);
+}
+function saveProxy() {
+  proxyUrl = document.getElementById('proxyInput').value.trim().replace(/\/$/, '');
+  localStorage.setItem('cd_proxy', proxyUrl);
+  alert('URL do proxy salva.');
+}
+
+function startAuth() {
+  clientId = document.getElementById('clientIdInput').value.trim() || localStorage.getItem('cd_client_id') || '';
+  if (!clientId) { alert('Insira o Client ID do Google OAuth.'); return; }
+  saveClientId();
+  const redirect = window.location.href.split('?')[0].split('#')[0];
+  const params = new URLSearchParams({ client_id:clientId, redirect_uri:redirect, response_type:'token', scope:SCOPES, prompt:'consent' });
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+}
+
+function handleCallback() {
+  const params = new URLSearchParams(window.location.hash.substring(1));
+  if (params.get('access_token')) {
+    accessToken = params.get('access_token');
+    history.replaceState(null, '', window.location.pathname);
+    document.getElementById('authBtn').classList.add('connected');
+    document.getElementById('authLabel').textContent = '✓ Google conectado';
+    document.getElementById('authBtn').onclick = null;
+  }
+}
+
+// UPLOAD
+const zone = document.getElementById('uploadZone');
+const fileIn = document.getElementById('fileInput');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files[0]) run(e.dataTransfer.files[0]); });
+fileIn.addEventListener('change', e => { if(e.target.files[0]) run(e.target.files[0]); });
+
+async function run(file) {
+  if (!file.name.toLowerCase().endsWith('.pdf')) { alert('Suba um arquivo PDF.'); return; }
+  if (!accessToken) { alert('Conecte sua conta Google primeiro.'); return; }
+
+  proxyUrl = document.getElementById('proxyInput').value.trim().replace(/\/$/, '') || localStorage.getItem('cd_proxy') || '';
+  if (!proxyUrl) { alert('Insira a URL do proxy (Cloudflare Worker) antes de continuar.'); return; }
+
+  show('progressCard'); hide('doneCard'); hideErr();
+  setProgress(0); setStep(1);
+
+  try {
+    // 1. Read PDF
+    await delay(300);
+    const base64 = await toBase64(file);
+    setProgress(15);
+
+    // 2. AI extraction via proxy
+    setStep(2); setProgress(25);
+    const data = await extractData(base64);
+    setProgress(60);
+
+    // 3. Copy template
+    setStep(3); setProgress(70);
+    const newId = await copyTemplate();
+    setProgress(82);
+
+    // 4. Fill slides
+    setStep(4); setProgress(90);
+    await fillSlides(newId, data);
+    setProgress(100);
+
+    document.getElementById('progTitle').textContent = 'Concluído!';
+    await delay(600);
+    showDone(newId);
+
+  } catch(e) {
+    showErr(e.message);
+  }
+}
+
+async function extractData(base64) {
+  const prompt = `Analise este relatório do Reportei e extraia os dados. Retorne APENAS JSON válido, sem markdown, sem explicações:
+
+{
+  "periodo": "ex: Jan - Fev 2026",
+  "novos_seguidores": "número",
+  "alcance_pessoas": "número",
+  "impressoes": "número",
+  "visualizacoes_totais": "número",
+  "alcance_30_dias": "número",
+  "posts_feed": "número",
+  "posts_stories": "número",
+  "posts_reels": "número",
+  "feed_visualizacoes": "número do post com mais visualizações",
+  "feed_alcance": "número",
+  "feed_interacoes": "número total de interações nas postagens",
+  "feed_curtidas": "número",
+  "feed_comentarios": "número",
+  "feed_salvos": "número",
+  "feed_compartilhamentos": "número",
+  "destaque1_views": "visualizações do 1º post mais visto",
+  "destaque2_views": "visualizações do 2º",
+  "destaque3_views": "visualizações do 3º",
+  "destaque4_views": "visualizações do 4º",
+  "destaque5_views": "visualizações do 5º",
+  "stories_interacoes": "número",
+  "stories_visualizacoes": "número total",
+  "stories_compartilhamentos": "número",
+  "midia_valor": "valor com R$ ex: R$1.809,25",
+  "midia_impressoes": "número",
+  "midia_alcance": "número",
+  "midia_cliques": "número",
+  "maior_pat_impressoes": "impressões da maior campanha",
+  "maior_pat_cliques": "cliques da maior campanha",
+  "maior_pat_valor": "valor gasto da maior campanha"
+}
+
+Use traço — para campos não encontrados. Retorne SOMENTE o JSON.`;
+
+  const resp = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1500,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  if (!resp.ok) throw new Error('Erro no proxy: ' + resp.status);
+  const result = await resp.json();
+  if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
+  const text = result.content.map(b => b.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+async function copyTemplate() {
+  const tid = document.getElementById('templateIdInput').value.trim() || TEMPLATE_ID;
+  const name = `Relatório Core Digital · ${new Date().toLocaleDateString('pt-BR')}`;
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${tid}/copy`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'Erro ao copiar template'); }
+  return (await r.json()).id;
+}
+
+async function fillSlides(presentationId, data) {
+  const map = {
+    periodo:'{{periodo}}', novos_seguidores:'{{novos_seguidores}}',
+    alcance_pessoas:'{{alcance_pessoas}}', impressoes:'{{impressoes}}',
+    visualizacoes_totais:'{{visualizacoes_totais}}', alcance_30_dias:'{{alcance_30_dias}}',
+    posts_feed:'{{posts_feed}}', posts_stories:'{{posts_stories}}', posts_reels:'{{posts_reels}}',
+    feed_visualizacoes:'{{feed_visualizacoes}}', feed_alcance:'{{feed_alcance}}',
+    feed_interacoes:'{{feed_interacoes}}', feed_curtidas:'{{feed_curtidas}}',
+    feed_comentarios:'{{feed_comentarios}}', feed_salvos:'{{feed_salvos}}',
+    feed_compartilhamentos:'{{feed_compartilhamentos}}',
+    destaque1_views:'{{destaque1_views}}', destaque2_views:'{{destaque2_views}}',
+    destaque3_views:'{{destaque3_views}}', destaque4_views:'{{destaque4_views}}',
+    destaque5_views:'{{destaque5_views}}',
+    stories_interacoes:'{{stories_interacoes}}', stories_visualizacoes:'{{stories_visualizacoes}}',
+    stories_compartilhamentos:'{{stories_compartilhamentos}}',
+    midia_valor:'{{midia_valor}}', midia_impressoes:'{{midia_impressoes}}',
+    midia_alcance:'{{midia_alcance}}', midia_cliques:'{{midia_cliques}}',
+    maior_pat_impressoes:'{{maior_pat_impressoes}}', maior_pat_cliques:'{{maior_pat_cliques}}',
+    maior_pat_valor:'{{maior_pat_valor}}'
+  };
+
+  const requests = Object.entries(map)
+    .filter(([f]) => data[f] && data[f] !== '—')
+    .map(([f, ph]) => ({ replaceAllText: { containsText: { text: ph, matchCase: true }, replaceText: String(data[f]) } }));
+
+  const r = await fetch(`https://slides.googleapis.com/v1/presentations/${presentationId}:batchUpdate`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests })
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'Erro ao preencher slides'); }
+}
+
+// UI
+function setStep(n) {
+  const icons = ['📄','🤖','📋','✏️'];
+  for (let i=1;i<=4;i++) {
+    const el = document.getElementById('s'+i);
+    if(i<n) { el.className='step done'; el.querySelector('.step-ic').textContent='✓'; }
+    else if(i===n) { el.className='step active'; el.querySelector('.step-ic').innerHTML='<span class="spin">⟳</span>'; }
+    else { el.className='step'; el.querySelector('.step-ic').textContent=icons[i-1]; }
+  }
+}
+function setProgress(p) {
+  document.getElementById('barFill').style.width=p+'%';
+  document.getElementById('progPct').textContent=p+'%';
+}
+function show(id) { document.getElementById(id).classList.add('visible'); }
+function hide(id) { document.getElementById(id).classList.remove('visible'); }
+function showErr(msg) { const e=document.getElementById('errBox'); e.textContent='Erro: '+msg; e.classList.add('visible'); }
+function hideErr() { document.getElementById('errBox').classList.remove('visible'); }
+function showDone(id) {
+  const url=`https://docs.google.com/presentation/d/${id}/edit`;
+  document.getElementById('doneUrl').textContent=url;
+  document.getElementById('openBtn').href=url;
+  show('doneCard');
+  document.getElementById('doneCard').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function copyUrl() { navigator.clipboard.writeText(document.getElementById('doneUrl').textContent).then(()=>alert('Copiado!')); }
+function reset() { fileIn.value=''; hide('doneCard'); hide('progressCard'); window.scrollTo({top:0,behavior:'smooth'}); }
+function toBase64(f) { return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=()=>rej(new Error('Leitura falhou')); r.readAsDataURL(f); }); }
+function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+handleCallback();
+</script>
+</body>
+</html>
