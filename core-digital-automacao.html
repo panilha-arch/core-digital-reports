@@ -867,68 +867,129 @@ async function processFile(file) {
   }
 }
 
-// ─── AI EXTRACTION ─────────────────────────────────────────────────────────
+// ─── PDF TEXT EXTRACTION + SMART PARSING ───────────────────────────────────
 
-async function extractWithAI(base64) {
-  const prompt = `Analise este relatório do Reportei e extraia os dados. Retorne APENAS JSON válido, sem markdown:
-
-{
-  "periodo": "ex: Jan - Fev 2026",
-  "novos_seguidores": "número (ex: 1.897)",
-  "alcance_pessoas": "número (ex: 626.680)",
-  "impressoes": "número (ex: 1.266.800)",
-  "visualizacoes_totais": "número (ex: 4.266.246)",
-  "alcance_30_dias": "número (ex: 333.835)",
-  "posts_feed": "número",
-  "posts_stories": "número",
-  "posts_reels": "número",
-  "feed_visualizacoes": "número",
-  "feed_alcance": "número",
-  "feed_interacoes": "número",
-  "feed_curtidas": "número",
-  "feed_comentarios": "número",
-  "feed_salvos": "número",
-  "feed_compartilhamentos": "número",
-  "destaque1_views": "número do 1º post mais visto",
-  "destaque2_views": "número do 2º post mais visto",
-  "destaque3_views": "número do 3º post mais visto",
-  "destaque4_views": "número do 4º post mais visto",
-  "destaque5_views": "número do 5º post mais visto",
-  "stories_interacoes": "número",
-  "stories_visualizacoes": "número",
-  "stories_compartilhamentos": "número",
-  "midia_valor": "ex: R$7.524,60",
-  "midia_impressoes": "número",
-  "midia_alcance": "número",
-  "midia_cliques": "número",
-  "maior_pat_impressoes": "número",
-  "maior_pat_cliques": "número",
-  "maior_pat_valor": "número"
+async function loadPdfJs() {
+  if (window.pdfjsLib) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-Use — para campos não encontrados. Retorne SOMENTE o JSON.`;
+async function extractWithAI(base64) {
+  await loadPdfJs();
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-          { type: 'text', text: prompt }
-        ]
-      }]
-    })
-  });
+  // Convert base64 → Uint8Array
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-  if (!resp.ok) throw new Error('Erro na API de IA: ' + resp.status);
-  const result = await resp.json();
-  const text = result.content.map(b => b.text || '').join('');
-  const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  // Extract all text from PDF
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  let fullText = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    fullText += content.items.map(i => i.str).join(' ') + '\n';
+  }
+
+  // Helper: find number near a keyword
+  function findNear(keywords, text, fallback = '—') {
+    const t = text.replace(/\s+/g, ' ');
+    for (const kw of keywords) {
+      const idx = t.toLowerCase().indexOf(kw.toLowerCase());
+      if (idx === -1) continue;
+      // Look for number pattern within 120 chars around keyword
+      const slice = t.slice(Math.max(0, idx - 60), idx + 120);
+      const match = slice.match(/R?\$?[\d]+[\.,][\d]{3}(?:[\.,]\d+)*|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d+)?|\d+/);
+      if (match) return match[0];
+    }
+    return fallback;
+  }
+
+  function findPeriod(text) {
+    const m = text.match(/(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*[\s\-–]+(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*[\s]*\d{4}/i);
+    if (m) return m[0];
+    const m2 = text.match(/\d{2}\/\d{2}\/\d{4}\s*[aà]\s*\d{2}\/\d{2}\/\d{4}/);
+    if (m2) return m2[0];
+    return '—';
+  }
+
+  function findCurrency(keywords, text) {
+    const t = text.replace(/\s+/g, ' ');
+    for (const kw of keywords) {
+      const idx = t.toLowerCase().indexOf(kw.toLowerCase());
+      if (idx === -1) continue;
+      const slice = t.slice(Math.max(0, idx - 80), idx + 120);
+      const match = slice.match(/R\$\s?[\d.,]+/);
+      if (match) return match[0].replace(/\s/g, '');
+    }
+    return '—';
+  }
+
+  // Extract all numbers that appear to be large view counts for destaques
+  function findDestaques(text) {
+    const nums = [];
+    const matches = text.matchAll(/\b(\d{1,3}(?:[.,]\d{3})+)\b/g);
+    const seen = new Set();
+    for (const m of matches) {
+      const n = parseInt(m[1].replace(/[.,]/g, ''));
+      if (n > 5000 && !seen.has(m[1])) {
+        seen.add(m[1]);
+        nums.push(m[1]);
+      }
+    }
+    // Return top 5 largest
+    return nums.sort((a, b) =>
+      parseInt(b.replace(/[.,]/g, '')) - parseInt(a.replace(/[.,]/g, ''))
+    ).slice(0, 5);
+  }
+
+  const destaques = findDestaques(fullText);
+
+  const data = {
+    periodo:                   findPeriod(fullText),
+    novos_seguidores:          findNear(['novos seguidores', 'new followers', 'seguidores novos', 'variação de seguidores'], fullText),
+    alcance_pessoas:           findNear(['pessoas alcançadas', 'alcance total das contas', 'alcance total'], fullText),
+    impressoes:                findNear(['impressões', 'impressoes', 'impressions'], fullText),
+    visualizacoes_totais:      findNear(['vis. totais', 'visualizações totais', 'visualizacoes totais'], fullText),
+    alcance_30_dias:           findNear(['alc. 30 dias', 'alcance 30', 'últimos 30 dias'], fullText),
+    posts_feed:                findNear(['número de postagens do feed', 'postagens do feed', 'feed'], fullText),
+    posts_stories:             findNear(['número de stories', 'stories'], fullText),
+    posts_reels:               findNear(['número de reels', 'número de Reels'], fullText),
+    feed_visualizacoes:        findNear(['visualizações', 'visualizacoes'], fullText),
+    feed_alcance:              findNear(['alcance das postagens', 'alcance dos posts'], fullText),
+    feed_interacoes:           findNear(['interações nas postagens', 'interacoes nas postagens', 'engajamento das postagens'], fullText),
+    feed_curtidas:             findNear(['curtidas em postagens', 'curtidas'], fullText),
+    feed_comentarios:          findNear(['comentários em postagens', 'comentarios'], fullText),
+    feed_salvos:               findNear(['salvamento das postagens', 'salvo'], fullText),
+    feed_compartilhamentos:    findNear(['compartilhamento das postagens', 'compartilhamentos'], fullText),
+    destaque1_views:           destaques[0] || '—',
+    destaque2_views:           destaques[1] || '—',
+    destaque3_views:           destaques[2] || '—',
+    destaque4_views:           destaques[3] || '—',
+    destaque5_views:           destaques[4] || '—',
+    stories_interacoes:        findNear(['interações com stories', 'total de interações com stories'], fullText),
+    stories_visualizacoes:     findNear(['visualizações totais dos stories', 'visualizações dos stories'], fullText),
+    stories_compartilhamentos: findNear(['compartilhamentos dos stories', 'total de compartilhamentos dos stories'], fullText),
+    midia_valor:               findCurrency(['valor gasto', 'valor usado', 'investido'], fullText),
+    midia_impressoes:          findNear(['impressões totais', 'impressoes totais'], fullText),
+    midia_alcance:             findNear(['alcance total', 'alcance'], fullText),
+    midia_cliques:             findNear(['total de cliques', 'cliques'], fullText),
+    maior_pat_impressoes:      findNear(['impressões:', 'impressoes:'], fullText),
+    maior_pat_cliques:         findNear(['cliques:'], fullText),
+    maior_pat_valor:           findNear(['valor:'], fullText),
+  };
+
+  // Store raw text for manual review if needed
+  data._rawText = fullText.slice(0, 500);
+
+  return data;
 }
 
 // ─── GOOGLE SLIDES ─────────────────────────────────────────────────────────
